@@ -22,9 +22,11 @@ import io.bootique.command.CommandOutcome;
 import io.bootique.command.CommandWithMetadata;
 import io.bootique.csv.CSVSettings;
 import io.bootique.meta.application.CommandMetadata;
+import io.bootique.meta.application.OptionMetadata;
 
 public class CSVParseCommand extends CommandWithMetadata {
     
+    private static final String CSVFILE_OPTION = "csvfile";
     private Provider<CSVSettings> csvSettingsProvider;
     private Provider<Set<Consumer<String[]>>> rowListenersProviders;
     private Provider<Set<Consumer<List<String[]>>>> documentListenersProviders;
@@ -39,6 +41,7 @@ public class CSVParseCommand extends CommandWithMetadata {
         super(CommandMetadata
                 .builder(CSVParseCommand.class)
                 .description("Parse csv")
+                .addOption(OptionMetadata.builder(CSVFILE_OPTION).description("the path to the csv file").valueRequired("input.csv"))
                 .build());
         this.csvSettingsProvider = csvSettings;
         this.rowListenersProviders = rowListeners;
@@ -52,10 +55,14 @@ public class CSVParseCommand extends CommandWithMetadata {
         //TODO where should we put config param validation ?
         final CSVParser parser = new CSVParserBuilder()
                                         .withSeparator(csvSettings.getSeparator().orElse(ICSVParser.DEFAULT_SEPARATOR))
-                                        .withQuoteChar(csvSettings.getSeparator().orElse(ICSVParser.DEFAULT_QUOTE_CHARACTER))
+                                        .withQuoteChar(csvSettings.getQuote().orElse(ICSVParser.DEFAULT_QUOTE_CHARACTER))
                                         .build();
-        try (Reader reader = Files.newBufferedReader(Paths.get(csvSettings.getCsvFilePath()));
-             CSVReader csvRead = new CSVReaderBuilder(reader).withCSVParser(parser).build();
+        
+        try (Reader reader = Files.newBufferedReader(Paths.get(cli.optionString(CSVFILE_OPTION)));
+             CSVReader csvRead = new CSVReaderBuilder(reader)
+                                         .withCSVParser(parser)
+                                         .withSkipLines(csvSettings.getSkipLines())
+                                         .build();
                 ){
             //call back listeners interleaving results
             csvRead.forEach(this::process);

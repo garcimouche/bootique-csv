@@ -10,24 +10,25 @@ public class CSVFactory {
     
     private String quote;
     
-    private String csvFilePath;
+    private int skipLines;
     
     CSVSettings createCSVSettings() {
-        return new CSVSettings(separator, quote, csvFilePath);
+        return new CSVSettings(separator, quote, skipLines);
     }
     
-    @BQConfigProperty("Separator character if different from default (i.e. comma [,]).")
+    @BQConfigProperty("Separator character if different from default (i.e. comma [,])")
     public void setSeparator(String separator) {
         this.separator = separator;
     }
 
-    @BQConfigProperty("Quote character if different from default (i.e. double quote ['']).")
+    @BQConfigProperty("Quote character if different from default (i.e. double quote [''])")
     public void setQuote(String quote) {
         this.quote = quote;
     }
-    
-    @BQConfigProperty("The CSV File to parse.")
-    public void setCsvFilePath(String path) {
-        this.csvFilePath = path;
+
+    @BQConfigProperty("The number of lines to skip")
+    public void setSkipLines(int skipLines) {
+        this.skipLines = skipLines;
     }
+    
 }
