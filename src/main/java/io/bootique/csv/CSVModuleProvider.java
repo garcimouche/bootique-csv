@@ -7,6 +7,7 @@ import java.util.Map;
 import com.google.inject.Module;
 
 import io.bootique.BQModuleProvider;
+import io.bootique.BQModule.Builder;
 
 public class CSVModuleProvider implements BQModuleProvider{
 
@@ -19,6 +20,11 @@ public class CSVModuleProvider implements BQModuleProvider{
     public Map<String, Type> configs() {
         //TODO understand this
         return Collections.singletonMap("csv", CSVFactory.class);
+    }
+ 
+    @Override
+    public Builder moduleBuilder() {
+        return BQModuleProvider.super.moduleBuilder().description("Bootique CSV module");
     }
     
 }
