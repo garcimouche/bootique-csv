@@ -5,6 +5,8 @@ import java.util.function.Consumer;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
 
 import io.bootique.ModuleExtender;
@@ -17,6 +19,8 @@ public class CSVModuleExtender extends ModuleExtender<CSVModuleExtender> {
     private Multibinder<Consumer<String[]>> rowListeners;
     
     private Multibinder<Consumer<List<String[]>>> documentListeners;
+    
+    private MapBinder<Class<? extends CSVBean>, Consumer<List<? extends CSVBean>>> beanListeners;
 
     public CSVModuleExtender(Binder binder) {
         super(binder);
@@ -26,6 +30,7 @@ public class CSVModuleExtender extends ModuleExtender<CSVModuleExtender> {
     public CSVModuleExtender initAllExtensions() {
         contributeRowListeners();
         contributeDocumentListeners();
+        contributeBeanListeners();
         return this;
     }
 
@@ -48,6 +53,17 @@ public class CSVModuleExtender extends ModuleExtender<CSVModuleExtender> {
         contributeDocumentListeners().addBinding().toInstance(all);
         return this;
     }
+
+    /**
+     * Attach a listener that will return a List of {@link CSVBean} instances
+     * @param allBeans the callback 
+     * @param beanClass the target bean class to use to read csv file 
+     * @return
+     */
+    public CSVModuleExtender addBeanListener(Consumer<List<? extends CSVBean>> allBeans, Class<? extends CSVBean> beanClass){
+        contributeBeanListeners().addBinding(beanClass).toInstance(allBeans);
+        return this;
+    }
     
     protected Multibinder<Consumer<String[]>> contributeRowListeners() {
         return rowListeners != null ? rowListeners : (rowListeners = newSet(new Key<Consumer<String[]>>(){}));
@@ -57,4 +73,8 @@ public class CSVModuleExtender extends ModuleExtender<CSVModuleExtender> {
         return documentListeners != null ? documentListeners : (documentListeners = newSet(new Key<Consumer<List<String[]>>>(){}));
     }
 
+    protected MapBinder<Class<? extends CSVBean>, Consumer<List<? extends CSVBean>>> contributeBeanListeners(){
+        return beanListeners!=null ? beanListeners : newMap(new TypeLiteral<Class<? extends CSVBean>>(){}, new TypeLiteral<Consumer<List<? extends CSVBean>>>(){});
+    }
+    
 }

@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -16,10 +17,12 @@ import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.ICSVParser;
+import com.opencsv.bean.CsvToBeanBuilder;
 
 import io.bootique.cli.Cli;
 import io.bootique.command.CommandOutcome;
 import io.bootique.command.CommandWithMetadata;
+import io.bootique.csv.CSVBean;
 import io.bootique.csv.CSVSettings;
 import io.bootique.meta.application.CommandMetadata;
 import io.bootique.meta.application.OptionMetadata;
@@ -30,6 +33,7 @@ public class CSVParseCommand extends CommandWithMetadata {
     private Provider<CSVSettings> csvSettingsProvider;
     private Provider<Set<Consumer<String[]>>> rowListenersProviders;
     private Provider<Set<Consumer<List<String[]>>>> documentListenersProviders;
+    private Provider<Map<Class<? extends CSVBean>, Consumer<List<? extends CSVBean>>>> beanListeners;
     
     private List<String[]> rows = new ArrayList<>();
     private boolean isDocumentListenerPresent;
@@ -37,7 +41,9 @@ public class CSVParseCommand extends CommandWithMetadata {
     @Inject
     public CSVParseCommand(Provider<CSVSettings> csvSettings, 
             Provider<Set<Consumer<String[]>>> rowListeners,
-            Provider<Set<Consumer<List<String[]>>>> documentListeners) {
+            Provider<Set<Consumer<List<String[]>>>> documentListeners,
+            Provider<Map<Class<? extends CSVBean>, Consumer<List<? extends CSVBean>>>> beanListeners            
+            ) {
         super(CommandMetadata
                 .builder(CSVParseCommand.class)
                 .description("Parse csv")
@@ -46,18 +52,56 @@ public class CSVParseCommand extends CommandWithMetadata {
         this.csvSettingsProvider = csvSettings;
         this.rowListenersProviders = rowListeners;
         this.documentListenersProviders = documentListeners;
+        this.beanListeners = beanListeners;
     }
 
     @Override
     public CommandOutcome run(Cli cli) {
         CSVSettings csvSettings = csvSettingsProvider.get();
         isDocumentListenerPresent = !documentListenersProviders.get().isEmpty();
+        Character separator = csvSettings.getSeparator().orElse(ICSVParser.DEFAULT_SEPARATOR);
         //TODO where should we put config param validation ?
-        final CSVParser parser = new CSVParserBuilder()
-                                        .withSeparator(csvSettings.getSeparator().orElse(ICSVParser.DEFAULT_SEPARATOR))
-                                        .withQuoteChar(csvSettings.getQuote().orElse(ICSVParser.DEFAULT_QUOTE_CHARACTER))
-                                        .build();
+        Character quote = csvSettings.getQuote().orElse(ICSVParser.DEFAULT_QUOTE_CHARACTER);
         
+        try {
+            if(rowListenersProviders.get().size() > 0 || documentListenersProviders.get().size() > 0)
+                processLines(cli, csvSettings, separator, quote);
+            if(beanListeners.get().size()>0)
+                processBeans(cli, csvSettings, separator, quote);
+        }
+        catch (IOException | RuntimeException e) {
+            return CommandOutcome.failed(-1, e);
+        }
+
+        return CommandOutcome.succeeded();
+    }
+
+    private void processBeans(Cli cli, CSVSettings csvSettings, Character separator, Character quote) {
+        beanListeners.get().entrySet().stream().forEach(e -> {
+           try (Reader reader = Files.newBufferedReader(Paths.get(cli.optionString(CSVFILE_OPTION)))){
+                    
+                    List<? extends CSVBean> beans = 
+                            new CsvToBeanBuilder<CSVBean>(reader)
+                                .withType(e.getKey())
+                                .withSeparator(separator)
+                                .withQuoteChar(quote)
+                                .withSkipLines(csvSettings.getSkipLines())
+                                .build()
+                                .parse();
+                    e.getValue().accept(beans);
+                    
+           }
+           catch (IOException ioe) {
+               throw new RuntimeException(ioe);
+           }
+        });
+    }
+
+    private void processLines(Cli cli, CSVSettings csvSettings, Character separator, Character quote) throws IOException {
+        final CSVParser parser = new CSVParserBuilder()
+                                        .withSeparator(separator)
+                                        .withQuoteChar(quote)
+                                        .build();
         try (Reader reader = Files.newBufferedReader(Paths.get(cli.optionString(CSVFILE_OPTION)));
              CSVReader csvRead = new CSVReaderBuilder(reader)
                                          .withCSVParser(parser)
@@ -65,16 +109,12 @@ public class CSVParseCommand extends CommandWithMetadata {
                                          .build();
                 ){
             //call back listeners interleaving results
-            csvRead.forEach(this::process);
+            csvRead.forEach(this::processSingleLine);
             documentListenersProviders.get().forEach(l -> l.accept(rows));
         }
-        catch (IOException e) {
-            return CommandOutcome.failed(-1, e);
-        }
-        return CommandOutcome.succeeded();
     }
     
-    private void process(String[] row){
+    private void processSingleLine(String[] row){
         rowListenersProviders.get().forEach(l -> l.accept(row));
         if(isDocumentListenerPresent)
             rows.add(row);

@@ -10,6 +10,11 @@ import io.bootique.ConfigModule;
 import io.bootique.config.ConfigurationFactory;
 import io.bootique.csv.command.CSVParseCommand;
 
+/**
+ * The CSV 'bootique guice' module
+ * @author franck
+ *
+ */
 public class CSVModule extends ConfigModule {
 
     @Override

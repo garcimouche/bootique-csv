@@ -3,6 +3,10 @@ package io.bootique.csv;
 import io.bootique.annotation.BQConfig;
 import io.bootique.annotation.BQConfigProperty;
 
+/**
+ * Provides configuration settings for csv process 
+ * @author franck
+ */
 @BQConfig("Configures CSV Reader/Writer")
 public class CSVFactory {
     
