@@ -1,5 +1,7 @@
 package io.bootique.csv.command;
 
+import static java.lang.String.format;
+
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
@@ -47,7 +49,13 @@ public class CSVParseCommand extends CommandWithMetadata {
         super(CommandMetadata
                 .builder(CSVParseCommand.class)
                 .description("Parse csv")
-                .addOption(OptionMetadata.builder(CSVFILE_OPTION).description("the path to the csv file").valueRequired("input.csv"))
+                .addOption(
+                        OptionMetadata.builder(CSVFILE_OPTION)
+                        .description("csvparse command - the path to the csv file")
+                        .valueRequired()
+                        .shortName('f')
+                        .build())
+                .shortName('p')
                 .build());
         this.csvSettingsProvider = csvSettings;
         this.rowListenersProviders = rowListeners;
@@ -57,6 +65,12 @@ public class CSVParseCommand extends CommandWithMetadata {
 
     @Override
     public CommandOutcome run(Cli cli) {
+        String csvFilePath = cli.optionString(CSVFILE_OPTION);
+        
+        if(csvFilePath == null)
+            return CommandOutcome.failed(-1, 
+                    new IllegalArgumentException(format("required command option '%s' not provided",CSVFILE_OPTION)));
+        
         CSVSettings csvSettings = csvSettingsProvider.get();
         isDocumentListenerPresent = !documentListenersProviders.get().isEmpty();
         Character separator = csvSettings.getSeparator().orElse(ICSVParser.DEFAULT_SEPARATOR);
@@ -65,9 +79,9 @@ public class CSVParseCommand extends CommandWithMetadata {
         
         try {
             if(rowListenersProviders.get().size() > 0 || documentListenersProviders.get().size() > 0)
-                processLines(cli, csvSettings, separator, quote);
+                processLines(csvFilePath, csvSettings, separator, quote);
             if(beanListeners.get().size()>0)
-                processBeans(cli, csvSettings, separator, quote);
+                processBeans(csvFilePath, csvSettings, separator, quote);
         }
         catch (IOException | RuntimeException e) {
             return CommandOutcome.failed(-1, e);
@@ -76,9 +90,9 @@ public class CSVParseCommand extends CommandWithMetadata {
         return CommandOutcome.succeeded();
     }
 
-    private void processBeans(Cli cli, CSVSettings csvSettings, Character separator, Character quote) {
+    private void processBeans(String csvFilePath, CSVSettings csvSettings, Character separator, Character quote) {
         beanListeners.get().entrySet().stream().forEach(e -> {
-           try (Reader reader = Files.newBufferedReader(Paths.get(cli.optionString(CSVFILE_OPTION)))){
+           try (Reader reader = Files.newBufferedReader(Paths.get(csvFilePath))){
                     
                     List<? extends CSVBean> beans = 
                             new CsvToBeanBuilder<CSVBean>(reader)
@@ -97,12 +111,12 @@ public class CSVParseCommand extends CommandWithMetadata {
         });
     }
 
-    private void processLines(Cli cli, CSVSettings csvSettings, Character separator, Character quote) throws IOException {
+    private void processLines(String csvFilePath, CSVSettings csvSettings, Character separator, Character quote) throws IOException {
         final CSVParser parser = new CSVParserBuilder()
                                         .withSeparator(separator)
                                         .withQuoteChar(quote)
                                         .build();
-        try (Reader reader = Files.newBufferedReader(Paths.get(cli.optionString(CSVFILE_OPTION)));
+        try (Reader reader = Files.newBufferedReader(Paths.get(csvFilePath));
              CSVReader csvRead = new CSVReaderBuilder(reader)
                                          .withCSVParser(parser)
                                          .withSkipLines(csvSettings.getSkipLines())
