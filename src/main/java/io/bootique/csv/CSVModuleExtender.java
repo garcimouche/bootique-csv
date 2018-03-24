@@ -60,8 +60,10 @@ public class CSVModuleExtender extends ModuleExtender<CSVModuleExtender> {
      * @param beanClass the target bean class to use to read csv file 
      * @return
      */
-    public CSVModuleExtender addBeanListener(Consumer<List<? extends CSVBean>> allBeans, Class<? extends CSVBean> beanClass){
-        contributeBeanListeners().addBinding(beanClass).toInstance(allBeans);
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public <T extends CSVBean> CSVModuleExtender addBeanListener(Consumer<List<T>> allBeans, Class<T> beanClass){
+        Consumer beans = allBeans;
+        contributeBeanListeners().addBinding(beanClass).toInstance(beans);
         return this;
     }
     
