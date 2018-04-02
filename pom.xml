@@ -20,7 +20,7 @@
 
     <properties>
         <opencsv-version>4.1</opencsv-version>
-        <bootique-version>${project.version}</bootique-version>
+        <bootique-version>0.25</bootique-version>
     </properties>
 
     <dependencyManagement>
